@@ -1,23 +1,20 @@
 from datasets import load_dataset
 from transformers import RobertaTokenizer, TrainingArguments, Trainer, DataCollatorWithPadding
 from sklearn.metrics import accuracy_score
-from src.train import setup_lora_model
+from src.model import setup_lora_model
 
 
 def load_data():
-    # Load and preprocess the AG News dataset for sequence classification.
     """
     Load and preprocess the AG News dataset for sequence classification.
     Returns:
         tokenized_dataset: Preprocessed dataset ready for training.
         data_collator: Data collator for batching the data.
-        id2label: Mapping from label IDs to class names.
     """
     # Load the AG News dataset
     base_model = 'roberta-base'
     dataset = load_dataset('ag_news', split='train')
     tokenizer = RobertaTokenizer.from_pretrained(base_model)
-
     
     def preprocess(examples):
         """
@@ -30,16 +27,12 @@ def load_data():
         tokenized = tokenizer(examples['text'], truncation=True, padding=True)
         return tokenized
     
-    
     tokenized_dataset = dataset.map(preprocess, batched=True,  remove_columns=["text"])
     tokenized_dataset = tokenized_dataset.rename_column("label", "labels")
 
     data_collator = DataCollatorWithPadding(tokenizer=tokenizer, return_tensors="pt")
 
-    class_names = dataset.features["label"].names
-    id2label = {i: label for i, label in enumerate(class_names)}
-
-    return tokenized_dataset, data_collator, id2label
+    return tokenized_dataset, data_collator
 
 def split_dataset(tokenized_dataset):
     """
@@ -149,16 +142,16 @@ def setup_trainer(model, train_dataset, eval_dataset, data_collator, training_ar
     
     return trainer
 
-def main(loraConfig, training_args):
+def get_datasets():
     # Load and preprocess the dataset
-    tokenized_dataset, data_collator, id2label = load_data()
+    tokenized_dataset, data_collator = load_data()
     
     # Split the dataset into training and evaluation sets
     train_dataset, eval_dataset = split_dataset(tokenized_dataset)
     
-    # Setup the LoRA model
-    model = setup_lora_model(loraConfig, id2label)
-    
+    return train_dataset, eval_dataset, data_collator
+
+def train(model, train_dataset, eval_dataset, data_collator):
     # Setup the Trainer
     trainer = setup_trainer(model, train_dataset, eval_dataset, data_collator, training_args, compute_metrics)
     
@@ -178,8 +171,15 @@ if __name__ == "__main__":
     )
     # Setup training arguments
     training_args = setup_training_args()
-
-    # Run the main training function
-    main()
     
+    # Load and setup the LoRA model
+    from src.model import setup_lora_model
+    model = setup_lora_model(loraConfig)
+
+    # Load datasets
+    train_dataset, eval_dataset, data_collator = get_datasets()
+
+    # Train the model
+    train(model, train_dataset, eval_dataset, data_collator)
+
 

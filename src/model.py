@@ -2,17 +2,29 @@
 from peft import get_peft_model, LoraConfig
 from transformers import RobertaForSequenceClassification
 
-def setup_lora_model(loraConfig, id2label):
+
+
+def setup_lora_model(loraConfig):
     """
     Setup LoRA model with the given configuration.
     
     Args:
-        model: The base model to be adapted with LoRA.
         loraConfig: Configuration for LoRA, including rank and dropout.
         
     Returns:
         The adapted model with LoRA layers.
     """
+
+    def get_agnews_labels():
+        class_names = ["World", "Sports", "Business", "Sci/Tech"]
+        
+        id2label = {i: label for i, label in enumerate(class_names)}
+        label2id = {label: i for i, label in enumerate(class_names)}
+        
+        return id2label, label2id
+
+    id2label, _ = get_agnews_labels()
+
     base_model = 'roberta-base'
     model = RobertaForSequenceClassification.from_pretrained(
         base_model,
