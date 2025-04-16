@@ -12,7 +12,8 @@ def setup_lora_model(loraConfig):
         loraConfig: Configuration for LoRA, including rank and dropout.
         
     Returns:
-        The adapted model with LoRA layers.
+        peft_model: The adapted model with LoRA layers.
+        id2label: The label mapping dictionary.
     """
 
     def get_agnews_labels():
@@ -35,7 +36,8 @@ def setup_lora_model(loraConfig):
 
     peft_model.print_trainable_parameters()
     
-    return peft_model
+    # Return both the model and id2label mapping
+    return peft_model, id2label
 
 if __name__ == "__main__":
     # Example LoRA configuration
@@ -47,10 +49,7 @@ if __name__ == "__main__":
         task_type="SEQ_CLS",  # Task type for sequence classification
         target_modules=['query']
     )
-
-    # Example id2label mapping
-    labels = ['World', 'Sports', 'Business', 'Sci/Tech']
-    id2label = {i: label for i, label in enumerate(labels)}
     
-    model = setup_lora_model(loraConfig, id2label)
+    # Now we get both the model and the label mapping
+    model, id2label = setup_lora_model(loraConfig)
     print(model)  # Print the model to verify setup

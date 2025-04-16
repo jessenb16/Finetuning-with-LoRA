@@ -116,7 +116,7 @@ def compute_metrics(pred):
     }
 
 
-def setup_trainer(model, train_dataset, eval_dataset, data_collator, training_args, compute_metrics):
+def setup_trainer(model, train_dataset, eval_dataset, data_collator, training_args, compute_metrics, id2label=None):
     """
     Setup the Trainer for training and evaluation.
     Args:
@@ -125,20 +125,27 @@ def setup_trainer(model, train_dataset, eval_dataset, data_collator, training_ar
         eval_dataset: The evaluation dataset.
         data_collator: Data collator for batching the data.
         training_args: Training arguments for the Trainer.
-        id2label: Mapping from label IDs to class names.
         compute_metrics: Function to compute metrics during evaluation.
+        id2label: Optional mapping from label IDs to class names.
     Returns:
         trainer: Configured Trainer instance.
     """
+    trainer_kwargs = {
+        "model": model,
+        "args": training_args,
+        "train_dataset": train_dataset,
+        "eval_dataset": eval_dataset,
+        "data_collator": data_collator,
+        "compute_metrics": compute_metrics,
+    }
+    
+    # Add label_names if available to avoid PEFT warning
+    if id2label:
+        label_names = [id2label[i] for i in sorted(id2label.keys())]
+        trainer_kwargs["label_names"] = label_names
+    
     # Initialize the Trainer
-    trainer = Trainer(
-        model=model,
-        args=training_args,
-        train_dataset=train_dataset,
-        eval_dataset=eval_dataset,
-        data_collator=data_collator,
-        compute_metrics=compute_metrics,
-    )
+    trainer = Trainer(**trainer_kwargs)
     
     return trainer
 
@@ -151,7 +158,7 @@ def get_datasets():
     
     return train_dataset, eval_dataset, data_collator
 
-def train(model, train_dataset, eval_dataset, data_collator, training_args):
+def train(model, train_dataset, eval_dataset, data_collator, training_args, id2label=None):
     """
     Train the model using the Trainer.
     Args:
@@ -161,11 +168,11 @@ def train(model, train_dataset, eval_dataset, data_collator, training_args):
         data_collator: Data collator for batching the data.
         training_args: Training arguments for the Trainer.
         compute_metrics: Function to compute metrics during evaluation.
-    Returns:
-        None
+        id2label: Optional mapping from label IDs to class names.
     """
-    # Setup the Trainer
-    trainer = setup_trainer(model, train_dataset, eval_dataset, data_collator, training_args, compute_metrics)
+    # Setup the Trainer with id2label
+    trainer = setup_trainer(model, train_dataset, eval_dataset, data_collator, 
+                          training_args, compute_metrics, id2label)
     
     # Train the model
     trainer.train()
@@ -184,14 +191,14 @@ if __name__ == "__main__":
     # Setup training arguments
     training_args = setup_training_args()
     
-    # Load and setup the LoRA model
+    # Load and setup the LoRA model - note we're getting both model and id2label now
     from src.model import setup_lora_model
-    model = setup_lora_model(loraConfig)
+    model, id2label = setup_lora_model(loraConfig)
 
     # Load datasets
     train_dataset, eval_dataset, data_collator = get_datasets()
 
-    # Train the model
-    train(model, train_dataset, eval_dataset, data_collator)
+    # Train the model with id2label
+    train(model, train_dataset, eval_dataset, data_collator, training_args, id2label)
 
 
