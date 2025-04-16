@@ -151,7 +151,19 @@ def get_datasets():
     
     return train_dataset, eval_dataset, data_collator
 
-def train(model, train_dataset, eval_dataset, data_collator):
+def train(model, train_dataset, eval_dataset, data_collator, training_args):
+    """
+    Train the model using the Trainer.
+    Args:
+        model: The model to be trained.
+        train_dataset: The training dataset.
+        eval_dataset: The evaluation dataset.
+        data_collator: Data collator for batching the data.
+        training_args: Training arguments for the Trainer.
+        compute_metrics: Function to compute metrics during evaluation.
+    Returns:
+        None
+    """
     # Setup the Trainer
     trainer = setup_trainer(model, train_dataset, eval_dataset, data_collator, training_args, compute_metrics)
     
