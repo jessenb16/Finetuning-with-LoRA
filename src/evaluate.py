@@ -97,17 +97,30 @@ def get_unlabelled_dataset(data_path, tokenizer=None, preprocess_fn=None, file_t
     else:
         raise ValueError(f"Unsupported file type: {file_type}")
     
+    # Check if text column exists before preprocessing
+    has_text = "text" in dataset.column_names
+    if not has_text:
+        print(f"Warning: 'text' column not found in dataset. Available columns: {dataset.column_names}")
+    
     # Apply preprocessing if provided
     if preprocess_fn:
-        if "text" in dataset.column_names:
+        if has_text:
             dataset = dataset.map(preprocess_fn, batched=True, remove_columns=["text"])
         else:
             dataset = dataset.map(preprocess_fn, batched=True)
+    
     # Use default preprocessing if tokenizer is provided but no custom preprocessing
-    elif tokenizer and "text" in dataset.column_names:
+    elif tokenizer and has_text:
         def default_preprocess(examples):
-            return tokenizer(examples["text"], truncation=True, padding=True)
+            # Make sure we get input_ids, attention_mask, etc.
+            return tokenizer(examples["text"], truncation=True, padding=True, return_tensors=None)
+        
         dataset = dataset.map(default_preprocess, batched=True, remove_columns=["text"])
+    
+    # Verify that the dataset now has input_ids
+    print(f"Processed dataset features: {dataset.column_names}")
+    if "input_ids" not in dataset.column_names:
+        raise ValueError("Processing did not generate 'input_ids'. Check tokenization process.")
     
     return dataset
 

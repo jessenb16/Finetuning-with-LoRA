@@ -17,19 +17,19 @@ def load_data():
     tokenizer = RobertaTokenizer.from_pretrained(base_model)
     
     def preprocess(examples):
-        """
-        Preprocess the dataset by tokenizing the text and preparing labels.
-        Args:
-            examples: A batch of examples from the dataset.
-        Returns:
-            tokenized: Tokenized examples with labels.
-        """
-        tokenized = tokenizer(examples['text'], truncation=True, padding=True)
-        return tokenized
+        # Ensure return of dictionary with input_ids, attention_mask, etc.
+        return tokenizer(examples['text'], truncation=True, padding=True, return_tensors=None)
     
-    tokenized_dataset = dataset.map(preprocess, batched=True,  remove_columns=["text"])
-    tokenized_dataset = tokenized_dataset.rename_column("label", "labels")
-
+    # Make sure preprocess handles batched inputs properly
+    tokenized_dataset = dataset.map(preprocess, batched=True, remove_columns=["text"])
+    
+    # Make sure the dataset has 'labels' column (not 'label')
+    if "label" in tokenized_dataset.column_names and "labels" not in tokenized_dataset.column_names:
+        tokenized_dataset = tokenized_dataset.rename_column("label", "labels")
+    
+    # Check that input_ids are present in the dataset
+    print(f"Tokenized dataset features: {tokenized_dataset.column_names}")
+    
     data_collator = DataCollatorWithPadding(tokenizer=tokenizer, return_tensors="pt")
 
     return tokenized_dataset, data_collator
@@ -78,7 +78,8 @@ def setup_training_args(training_args=None, **kwargs):
         "per_device_eval_batch_size": 16,
         "optim": "adamw_torch",
         "gradient_checkpointing": False,
-        "gradient_checkpointing_kwargs": {'use_reentrant': True}
+        "gradient_checkpointing_kwargs": {'use_reentrant': True},
+        "report_to": "none"
     }
     
     # Override defaults with provided kwargs
@@ -129,10 +130,10 @@ def setup_trainer(model, train_dataset, eval_dataset, data_collator, training_ar
         "compute_metrics": compute_metrics,
     }
     
-    # # Add label_names if available to avoid PEFT warning
-    # if id2label:
-    #     label_names = [id2label[i] for i in sorted(id2label.keys())]
-    #     trainer_kwargs["label_names"] = label_names
+    # Add label_names if available to avoid PEFT warning
+    if id2label:
+        label_names = [id2label[i] for i in sorted(id2label.keys())]
+        trainer_kwargs["label_names"] = label_names
     
     # Initialize the Trainer
     trainer = Trainer(**trainer_kwargs)
