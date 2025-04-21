@@ -50,52 +50,42 @@ def split_dataset(tokenized_dataset):
     
     return train_dataset, eval_dataset
 
-def setup_training_args(
-        output_dir = "output",
-        eval_strategy = "steps",
-        logging_steps = 100,
-        learning_rate = 2e-5,
-        num_train_epochs = 3,
-        max_steps = 1000,
-        dataload_num_workers = 4,
-        per_device_train_batch_size = 16,
-        per_device_eval_batch_size = 16,
-        optimizer = "adamw_torch",
-        gradient_checkpoiting = False,
-        gradient_checkpointing_kwags = {'use_reetrant': True}
-):
+def setup_training_args(training_args=None, **kwargs):
     """
     Setup training arguments for the Trainer.
+    
     Args:
-        output_dir: Directory to save the model and logs.
-        eval_strategy: Evaluation strategy during training.
-        logging_steps: Frequency of logging during training.
-        learning_rate: Learning rate for the optimizer.
-        num_train_epochs: Number of epochs for training.
-        max_steps: Maximum number of training steps.
-        dataload_num_workers: Number of workers for data loading.
-        per_device_train_batch_size: Batch size for training.
-        per_device_eval_batch_size: Batch size for evaluation.
-        optimizer: Optimizer type to use.
-        gradient_checkpoiting: Whether to use gradient checkpointing.
-        gradient_checkpointing_kwags: Additional arguments for gradient checkpointing.
+        training_args: Optional pre-configured TrainingArguments object.
+        **kwargs: Keyword arguments to pass to TrainingArguments if training_args is None.
+                  These will override default values.
+                  
     Returns:
         training_args: Configured TrainingArguments for the Trainer.
     """
-    training_args = TrainingArguments(
-        output_dir=output_dir,
-        evaluation_strategy=eval_strategy,
-        logging_steps=logging_steps,
-        learning_rate=learning_rate,
-        num_train_epochs=num_train_epochs,
-        max_steps=max_steps,
-        dataloader_num_workers=dataload_num_workers,
-        per_device_train_batch_size=per_device_train_batch_size,
-        per_device_eval_batch_size=per_device_eval_batch_size,
-        optim=optimizer,
-        gradient_checkpointing=gradient_checkpoiting,
-        gradient_checkpointing_kwargs=gradient_checkpointing_kwags
-    )
+    if training_args is not None:
+        return training_args
+    
+    # Default values
+    default_args = {
+        "output_dir": "output",
+        "evaluation_strategy": "steps",
+        "logging_steps": 100,
+        "learning_rate": 2e-5,
+        "num_train_epochs": 3,
+        "max_steps": 1000,
+        "dataloader_num_workers": 4,
+        "per_device_train_batch_size": 16,
+        "per_device_eval_batch_size": 16,
+        "optim": "adamw_torch",
+        "gradient_checkpointing": False,
+        "gradient_checkpointing_kwargs": {'use_reentrant': True}
+    }
+    
+    # Override defaults with provided kwargs
+    default_args.update(kwargs)
+    
+    # Initialize TrainingArguments with combined arguments
+    training_args = TrainingArguments(**default_args)
     
     return training_args
 
@@ -139,10 +129,10 @@ def setup_trainer(model, train_dataset, eval_dataset, data_collator, training_ar
         "compute_metrics": compute_metrics,
     }
     
-    # Add label_names if available to avoid PEFT warning
-    if id2label:
-        label_names = [id2label[i] for i in sorted(id2label.keys())]
-        trainer_kwargs["label_names"] = label_names
+    # # Add label_names if available to avoid PEFT warning
+    # if id2label:
+    #     label_names = [id2label[i] for i in sorted(id2label.keys())]
+    #     trainer_kwargs["label_names"] = label_names
     
     # Initialize the Trainer
     trainer = Trainer(**trainer_kwargs)
