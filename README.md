@@ -1,6 +1,10 @@
 # Finetuning with LoRA
 
-This repository contains code and experiments for fine-tuning models using Low-Rank Adaptation (LoRA).
+This repository contains code and experiments for fine-tuning models using Low-Rank Adaptation (LoRA). The project focuses on optimizing a BERT architecture (specifically RoBERTa) for the AGNEWS text classification dataset under the constraint of using no more than 1 million trainable parameters.
+
+LoRA (Low-Rank Adaptation) allows for efficient fine-tuning by freezing the pre-trained model weights and injecting trainable rank decomposition matrices into each layer. This approach dramatically reduces the number of trainable parameters while maintaining model performance. In this implementation, each frozen weight matrix in RoBERTa is perturbed by a trainable low-rank matrix, with configurable rank and perturbation strength parameters.
+
+The experiments explore various LoRA configurations to identify the optimal settings for maximizing accuracy within the parameter budget constraint.
 
 ## Model Details
 
