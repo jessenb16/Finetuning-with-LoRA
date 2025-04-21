@@ -130,10 +130,11 @@ def setup_trainer(model, train_dataset, eval_dataset, data_collator, training_ar
         "compute_metrics": compute_metrics,
     }
     
-    # Add label_names if available to avoid PEFT warning
-    if id2label:
-        label_names = [id2label[i] for i in sorted(id2label.keys())]
-        trainer_kwargs["label_names"] = label_names
+    # Remove the label_names parameter as it's not supported in this version
+    # Instead, make sure the model has the id2label attribute directly
+    if id2label and hasattr(model, "config"):
+        model.config.id2label = id2label
+        model.config.label2id = {v: k for k, v in id2label.items()}
     
     # Initialize the Trainer
     trainer = Trainer(**trainer_kwargs)

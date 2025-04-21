@@ -61,22 +61,23 @@ def evaluate_model(inference_model, dataset, labelled=True, batch_size=8, data_c
     else:
         return all_predictions
     
-def get_unlabelled_dataset(data_path, tokenizer=None, preprocess_fn=None, file_type="pickle"):
+def get_unlabelled_dataset(data_path, tokenizer=None, file_type="pickle"):
     """
     Load and preprocess unlabelled data for inference.
     
     Args:
         data_path (str): Path to the unlabelled data file
-        tokenizer: Optional tokenizer for preprocessing
-        preprocess_fn: Function to preprocess the data. If None and tokenizer is provided,
-                       a default preprocessing function will be used
+        tokenizer: Tokenizer for preprocessing (RobertaTokenizer)
         file_type (str): Type of file to load ('pickle', 'csv', 'json', 'huggingface')
     
     Returns:
         dataset: Preprocessed dataset ready for inference
     """
-
-    
+    # Initialize tokenizer if not provided
+    if tokenizer is None:
+        from transformers import RobertaTokenizer
+        tokenizer = RobertaTokenizer.from_pretrained('roberta-base')
+        
     # Load dataset based on file type
     if file_type == "pickle":
         with open(data_path, "rb") as f:
@@ -88,39 +89,17 @@ def get_unlabelled_dataset(data_path, tokenizer=None, preprocess_fn=None, file_t
         df = pd.read_json(data_path)
         dataset = Dataset.from_pandas(df)
     elif file_type == "huggingface":
-        # Assumes data_path is in format "dataset_name" or "dataset_name:split"
-        if ":" in data_path:
-            dataset_name, split = data_path.split(":", 1)
-            dataset = load_dataset(dataset_name, split=split)
-        else:
-            dataset = load_dataset(data_path)
+        dataset = load_dataset(data_path.split(":")[0], 
+                              split=data_path.split(":")[1] if ":" in data_path else None)
     else:
         raise ValueError(f"Unsupported file type: {file_type}")
     
-    # Check if text column exists before preprocessing
-    has_text = "text" in dataset.column_names
-    if not has_text:
-        print(f"Warning: 'text' column not found in dataset. Available columns: {dataset.column_names}")
+    # Define preprocessing function
+    def preprocess(examples):
+        return tokenizer(examples['text'], truncation=True, padding=True)
     
-    # Apply preprocessing if provided
-    if preprocess_fn:
-        if has_text:
-            dataset = dataset.map(preprocess_fn, batched=True, remove_columns=["text"])
-        else:
-            dataset = dataset.map(preprocess_fn, batched=True)
-    
-    # Use default preprocessing if tokenizer is provided but no custom preprocessing
-    elif tokenizer and has_text:
-        def default_preprocess(examples):
-            # Make sure we get input_ids, attention_mask, etc.
-            return tokenizer(examples["text"], truncation=True, padding=True, return_tensors=None)
-        
-        dataset = dataset.map(default_preprocess, batched=True, remove_columns=["text"])
-    
-    # Verify that the dataset now has input_ids
-    print(f"Processed dataset features: {dataset.column_names}")
-    if "input_ids" not in dataset.column_names:
-        raise ValueError("Processing did not generate 'input_ids'. Check tokenization process.")
+    # Apply preprocessing
+    dataset = dataset.map(preprocess, batched=True, remove_columns=["text"])
     
     return dataset
 
@@ -129,8 +108,7 @@ def run_inference(
     dataset, 
     output_path, 
     data_collator=None, 
-    batch_size=8, 
-    id_column=None
+    batch_size=8
 ):
     """
     Run inference on unlabelled dataset and save predictions to CSV.
@@ -141,36 +119,25 @@ def run_inference(
         output_path: Path to save the predictions CSV
         data_collator: Function to collate data batches
         batch_size: Batch size for inference
-        id_column: Optional column name to use as ID in output
-                  If None, sequential IDs will be generated
                   
     Returns:
         predictions: Model predictions
-        output_file: Path to saved predictions file
     """
     # Run inference
     predictions = evaluate_model(model, dataset, labelled=False, 
                                 batch_size=batch_size, data_collator=data_collator)
     
-    # Prepare output dataframe
-    if id_column and id_column in dataset.column_names:
-        ids = dataset[id_column]
-    else:
-        ids = list(range(len(predictions)))
-    
-    # Convert predictions to standard format
-    pred_values = predictions.numpy() if hasattr(predictions, 'numpy') else predictions
-    
-    # Create dataframe and save
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    # Create dataframe with sequential IDs
     df_output = pd.DataFrame({
-        'ID': ids,
-        'Label': pred_values
+        'ID': range(len(predictions)),
+        'Label': predictions.numpy() if hasattr(predictions, 'numpy') else predictions
     })
-    df_output.to_csv(output_path, index=False)
+    
+    # Create directory if needed and save CSV
+    df_output.to_csv(os.path.join(output_path,"inference_output.csv"), index=False)
     
     print(f"Inference complete. Predictions saved to {output_path}")
-    return predictions, output_path
+    return predictions
 
 if __name__ == "__main__":
     # Example usage
